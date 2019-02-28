@@ -6,12 +6,12 @@
 #include <fstream>
 
 enum SYSCALL{
-	PRINT_B = 1,
-	PRINT_MEM = 2,
-	READ_B = 3,
-	READ_MEM = 4,
-	PRINT_STR = 5,
-	READ_STR = 6
+	PRINT_B = 4,
+	PRINT_MEM = 3,
+	READ_B = 7,
+	READ_MEM = 2,
+	PRINT_STR = 1,
+	READ_STR = 8
 };
 
 class GTUOS{

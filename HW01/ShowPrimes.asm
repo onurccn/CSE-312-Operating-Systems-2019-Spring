@@ -8,12 +8,12 @@
         ;.nodump
 
 	; OS call list
-PRINT_B		equ 1
-PRINT_MEM	equ 2
-READ_B		equ 3
-READ_MEM	equ 4
-PRINT_STR	equ 5
-READ_STR	equ 6
+PRINT_B		equ 4
+PRINT_MEM	equ 3
+READ_B		equ 7
+READ_MEM	equ 2
+PRINT_STR	equ 1
+READ_STR	equ 8
 
 	; Position for stack pointer
 stack   equ 0F000h
