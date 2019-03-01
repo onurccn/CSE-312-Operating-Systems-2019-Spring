@@ -39,7 +39,7 @@ GTU_OS:	PUSH D
 	;This program prints a null terminated string to the screen
 
 primeString:	dw ' is Prime',00AH,00H ; null terminated string
-nonPrimeString:	dw ' is not Prime',00AH,00H ; null terminated string
+nonPrimeString:	dw '',00AH,00H ; null terminated string
 INDEX: ds 2 ; Index init
 LIMIT: dw 1001 ; will keep Limit
 
