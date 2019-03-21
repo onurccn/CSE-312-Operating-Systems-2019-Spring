@@ -1,8 +1,8 @@
 CFLAGS = -std=c++11
-all: HW01
+all: HW02
 
-HW01: main.o gtuos.o 8080emu.o memory.o
-	g++ main.o gtuos.o 8080emu.o memory.o -o HW01
+HW02: main.o gtuos.o 8080emu.o memory.o
+	g++ main.o gtuos.o 8080emu.o memory.o -o HW02
 
 main.o: main.cpp
 	g++ $(CFLAGS) -c main.cpp

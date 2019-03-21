@@ -2,12 +2,13 @@
 #include <fstream>
 #include "8080emuCPP.h"
 #include "gtuos.h"
+#include "memory.h"
 #include <cmath>
 #include <string>
 
 using namespace std;
 
-uint64_t GTUOS::handleCall(const CPU8080 & cpu){
+uint64_t GTUOS::handleCall(CPU8080 & cpu){
 	switch(cpu.state->a){
 		case PRINT_B:
 			cout << "PRINT_B" << endl;
@@ -31,11 +32,35 @@ uint64_t GTUOS::handleCall(const CPU8080 & cpu){
 		case READ_STR:
 			cout << "READ_STR" << endl;
 			return readToRegisterBCString(cpu) * 10;
+		case LOAD_EXEC:
+			cout << "LOAD_EXEC" << endl;
+			loadExec(cpu);
+			return 100;
+		case SET_QUANTUM:
+			cout << "SET_QUANTUM" << endl;
+			cpu.setQuantum(cpu.state->b);
+			return 7;
+		case PROCESS_EXIT:
+			// Need to access process table
+			return 80;
 		default:
 			return 0; // No registered System call counts as 0 cycles.
 	}
 
 	return 10;
+}
+
+void GTUOS::loadExec(CPU8080 & cpu){
+	unsigned int index = getBCIndex(cpu);
+	string filename = "";
+	for(size_t i = index; cpu.memory->at(i) != 0; i++)
+	{
+		filename += cpu.memory->at(i);
+	}
+
+	uint16_t startAddress = (cpu.state->h << 8) + cpu.state->l;
+	cpu.ReadFileIntoMemoryAt(filename.c_str(), startAddress);
+	cpu.raiseInterrupt(0xef);
 }
 
 void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){

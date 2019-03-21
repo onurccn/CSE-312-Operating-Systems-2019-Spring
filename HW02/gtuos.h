@@ -11,12 +11,15 @@ enum SYSCALL{
 	READ_B = 7,
 	READ_MEM = 2,
 	PRINT_STR = 1,
-	READ_STR = 8
+	READ_STR = 8,
+	LOAD_EXEC = 5,
+	SET_QUANTUM = 6,
+	PROCESS_EXIT = 9
 };
 
 class GTUOS{
 	public:
-		uint64_t handleCall(const CPU8080 & cpu);
+		uint64_t handleCall(CPU8080 & cpu);
 	private:
 		std::string outputFileName = "output.txt";
 		std::string inputFileName = "input.txt";
@@ -27,6 +30,7 @@ class GTUOS{
 		void readToRegisterBDecimal(const CPU8080 & cpu);
 		void readToRegisterBCMemory(const CPU8080 & cpu);
 		unsigned int readToRegisterBCString(const CPU8080 & cpu);
+		void loadExec(CPU8080 & cpu);
 
 		int getBCIndex(const CPU8080 & cpu);
 		void printStringToFile(const std::string str);
