@@ -60,7 +60,7 @@ void GTUOS::loadExec(CPU8080 & cpu){
 
 	uint16_t startAddress = (cpu.state->h << 8) + cpu.state->l;
 	cpu.ReadFileIntoMemoryAt(filename.c_str(), startAddress);
-	cpu.raiseInterrupt(0xef);
+	//cpu.raiseInterrupt(0xef);
 }
 
 void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){

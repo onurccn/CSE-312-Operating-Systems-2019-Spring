@@ -957,7 +957,7 @@ namespace {
       *low = memory->at(state->sp);
       *high = memory->at(state->sp + 1);
       state->sp += 2;
-      //    printf ("%04x %04x pop\n", state->pc, state->sp);
+          //printf ("%04x %04x pop\n", state->pc, state->sp);
     }
 
     void FlagsZSP(State8080 *state, uint8_t value) {
@@ -969,7 +969,7 @@ namespace {
 
 
 unsigned CPU8080::Emulate8080p(int debug) {
-	//  lastOpcode = &memory->at(state->pc);
+	  lastOpcode = &memory->at(state->pc);
 
 	if(interrupt ==0){	
 		lastOpcode = &memory->at(state->pc);
@@ -980,7 +980,7 @@ unsigned CPU8080::Emulate8080p(int debug) {
 	else{
 	   	
 		lastOpcode = &interrupt_code;
-		Disassemble8080Op(memory,*lastOpcode);
+		//Disassemble8080Op(memory,*lastOpcode);
 		onInterrupt();
 		state->pc-=2; 
 		((Memory *)(memory))->setBaseRegister(0);
@@ -2118,11 +2118,16 @@ unsigned CPU8080::Emulate8080p(int debug) {
       }
       break;
     case 0xe9:            //PCHL
-       state->pc = (state->h << 8) | state->l;
-       ((Memory *)(memory))->setBaseRegister((state->d << 8) | state->e);
-       Pop(memory, state, &state->h,  &state->l);
-       Pop(memory, state, &state->d, &state->e);
-      break;
+    {
+        uint8_t Dtemp = state->d;
+        uint8_t Etemp = state->e;
+        
+        state->pc = (state->h << 8) | state->l;
+        Pop(memory, state, &state->h, &state->l);
+        Pop(memory, state, &state->d, &state->e);
+        ((Memory *) (memory))->setBaseRegister((Dtemp << 8) | Etemp);
+        break;
+    }
     case 0xea:            //JPE
       if (state->cc.p != 0)
         state->pc = (lastOpcode[2] << 8) | lastOpcode[1];
@@ -2231,7 +2236,7 @@ unsigned CPU8080::Emulate8080p(int debug) {
       }
       break;
     case 0xf9:          //SPHL
-      state->sp = state->l | (state->h << 8);
+      state->sp =   state->l | (state->h << 8);
       break;
     case 0xfa:          //JM
       if (state->cc.s != 0)
@@ -2294,7 +2299,6 @@ unsigned CPU8080::Emulate8080p(int debug) {
 	{
 	        if (debug != 0)
 			printf("Interrupt: %d\n",scheduler_timer);
-	        
 		scheduler_timer = 0;
 		dispatchScheduler();
 
@@ -2316,7 +2320,7 @@ void CPU8080::raiseInterrupt(uint8_t code){
      interrupt = 1;
      interrupt_code = code;	
 }
-
+/*
 void CPU8080::onInterrupt(){
 	interrupt = 0;
 
@@ -2327,6 +2331,7 @@ void CPU8080::onInterrupt(){
 
 	memory->physicalAt(int_buffer+4) = state->b;
 	memory->physicalAt(int_buffer+3) = state->c;
+
 	memory->physicalAt(int_buffer+6) = state->d;
 	memory->physicalAt(int_buffer+5) = state->e;
 	memory->physicalAt(int_buffer+8) = state->h;
@@ -2338,6 +2343,35 @@ void CPU8080::onInterrupt(){
 	memory->physicalAt(int_buffer+14) = (base >> 8) & 0xff;
 	memory->physicalAt(int_buffer+13) = (base & 0xff);
 	memory->physicalAt(int_buffer+15) = *(unsigned char *)&state->cc;
+
+}
+*/
+void CPU8080::onInterrupt(){
+    interrupt = 0;
+
+    uint16_t base = ((Memory *)memory)->getBaseRegister();
+    uint16_t limit = ((Memory *)memory)->getLimitRegister();
+
+    memory->physicalAt(int_buffer+0) = state->a;
+
+    memory->physicalAt(int_buffer+1) = state->b;
+    memory->physicalAt(int_buffer+2) = state->c;
+
+    memory->physicalAt(int_buffer+3) = state->d;
+    memory->physicalAt(int_buffer+4) = state->e;
+    memory->physicalAt(int_buffer+5) = state->h;
+    memory->physicalAt(int_buffer+6) = state->l;
+
+    memory->physicalAt(int_buffer+8) = (state->sp >> 8) & 0xff;
+    memory->physicalAt(int_buffer+7) = (state->sp & 0xff);
+
+    memory->physicalAt(int_buffer+10) = (state->pc >> 8) & 0xff;
+    memory->physicalAt(int_buffer+9) = (state->pc & 0xff);
+
+    memory->physicalAt(int_buffer+12) = (base >> 8) & 0xff;
+    memory->physicalAt(int_buffer+11) = (base & 0xff);
+
+    memory->physicalAt(int_buffer+13) = *(unsigned char *)&state->cc;
 
 }
 
@@ -2371,7 +2405,7 @@ CPU8080::CPU8080(MemoryBase *mem) {
   state = (State8080 *) calloc(1, sizeof(State8080));
   //memory = (uint8_t*) malloc(0x10000);  //16K
   memory = mem;
-state->int_enable =1;
+  state->int_enable =1;
 }
 
 CPU8080::~CPU8080() {
@@ -2388,5 +2422,4 @@ bool CPU8080::isSystemCall() const {
     return true;
   return false;
 }
-
 
