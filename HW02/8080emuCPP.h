@@ -84,7 +84,7 @@ public:
 	uint8_t quantum = 120;  // Round Robin quantum
 	uint8_t scheduler_timer = 0; //Current Execution Time
 	uint8_t initialized = 0;
-	uint16_t int_buffer = 65280; // Interrupt Buffer Address
+	uint16_t int_buffer = 256; // Interrupt Buffer Address
        CPU8080(MemoryBase *mem);        
 		~CPU8080();
         unsigned Emulate8080p(int debug = 0);

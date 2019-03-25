@@ -48,97 +48,138 @@ INTERRUPT5:
 	
 	ret
 
-prog1: dw 'ShowPrimes.com', 00H
+prog1: dw 'Factorize.com', 00H
 initName: dw 'init', 00H
 currentProcessID: db 00H	; init process id
+currentProcessEntry: ds 2
 lastProcessID: db 00H
 
 ;; Need to make context switching here according to process table
+;; First store everything to current stack
+;; Then pick which process to run
+;; Restore new process stack if its not first run of next process
 SCHEDULER:
-	LDA currentProcessID
-	CPI 0
-	JNZ restoreProg
+	;;; Save everything to stack and process table
+	INX SP
+	INX SP
+	push D		; These will be popped by PCHL 
+	push H		; These will be popped by PCHL 
+	push psw	; This (condition flags) isn't saved during interrupt so push it to current stack asap
+	push B
 	
-	MVI H, 0FFH
-	MVI L, 7
-	MOV E, M
+	LHLD currentProcessEntry
+	
+	MVI D, 0
+	MVI E, 3
+	DAD D
+	LDA 266		; PC High
+	MOV M, A
+	INX	H
+	LDA 265		; PC Low
+	MOV M, A	; Save PC
+	
+	MVI E, 103
+	DAD D
+	XCHG 
+	LDA 264
+	MOV H, A
+	LDA 263
+	MOV L, A
+	MVI B, 0FFH
+	MVI C, 0F8H
+	DAD B
+	XCHG
+	MOV M, D	
 	INX H
-	MOV D, M
-	SHLD memory + 107
+	MOV M, E	; Save program stack pointer (check high - low order)
+
+	INX H
+	MVI M, 0 	; Set program state to 0: Ready.
+
+	;;; Restore next process in process table
+	LHLD currentProcessEntry
+	MVI D, 4
+	MVI E, 0
+	DAD D
+
+	MOV A, M		; No need to check Low its always 0 since we use 200 and its multiplications
+	CPI 0
+	JZ revertHead	; There is no next, load first program in process table
+	JMP restoreProgram
+revertHead:
+	LXI H, memory
+restoreProgram:
+	SHLD currentProcessEntry	; Save next location
+	MVI D, 0
+	MVI E, 2
+	DAD D
+	MOV A, M
+	STA currentProcessID
+
+	MVI E, 107
+	DAD D
+	MVI M, 1					; Set status as Running
 	
-	LXI H, memory + 1024 + 107
+	LHLD currentProcessEntry
+	MVI D, 0
+	MVI E, 107
+	DAD D
 	MOV D, M
 	INX H
 	MOV	E, M
 	XCHG
-	SPHL 
+	SPHL 						; Restore next process' stack pointer
 
-	LXI D, memory + 1024 + 109
-	MVI H, 0
-	MVI L, 0
-	INR A
-	STA currentProcessID
+	LHLD currentProcessEntry 	; Get next process entry base address
+	MVI D, 0
+	MVI E, 105 
+	DAD D
+	MOV D, M
+	INX H
+	MOV E, M					; Store DE = base reg address for PCHL	
 
-	
+	LHLD currentProcessEntry
+	MVI B, 0
+	MVI C, 3
+	DAD	B
+	MOV B, M
+	INX	H
+	MOV C, M 					
+	MOV H, B
+	MOV L, C						; Store HL = PC for PCHL
+	MOV A, L
+	CPI 0
+	JNZ process_continue
+	MOV A, H
+	CPI 0
+	JNZ process_continue
 
+;; First start of the process, just push HL and DE regs
+	push D
+	push H
+	jmp start
+
+process_continue:	
+	pop B
+	pop psw
+
+start:
 	EI
 	PCHL	
-
-restoreProg:
-	; Restore program stack pointer
-	MVI H, 0FFH
-	MVI L, 7
-	MOV C, M
-	INX H
-	MOV B, M
-	MOV H, B
-	MOV L, C
-	SPHL
-
-	;; push D and H pairs into the stack
-	LDA 0FF03H
-	MOV D, A
-	LDA 0FF04H
-	MOV E, A
-	PUSH D
-	LDA 0FF05H
-	MOV H, A
-	LDA 0FF06H
-	MOV L, A
-	PUSH H
-
-	; Restore base register
-	MVI H, 0FFH
-	MVI L, 11
-	MOV E, M
-	INX H
-	MOV D, M
 	
-	
+	;;; END OF SCHEDULER
 
-	; Restore pc counter
-	MVI L, 9
-	MOV C, M
-	INX H
-	MOV B, M
-	MOV H, B
-	MOV L, C
-
-	LDA 0FF01H
-	MOV B, A
-	LDA 0FF02H
-	MOV C, A
-	LDA 0FF00H
-	EI		; Enable Interrupts on the way out
-	PCHL
-
+	org 110h
 begin:
 	DI
 	LXI SP,stack 	; always initialize the stack pointer
 	CALL initProcessTable
     LXI B, prog1
 	CALL loadProgramIntoMemory
-
+wait:
+	MVI A, 1
+	CPI 1
+	JZ wait
     hlt
 
 ; Empty next process pointer
@@ -154,12 +195,20 @@ initProcessTable:
 	MOV M, D
 	INX H
 	MOV M, E
-	LXI D, memory + 107
-	XTHL
-	XCHG
-	MOV M, E
-	INX H
-	MOV M, D
+
+	LXI B, initName
+	LXI H, memory + 5
+	CALL copyNameIntoProcessTable	; program name (entry + 5)
+
+	MVI A, 0
+	STA memory + 105
+	STA memory + 106
+
+	MVI A, 1
+	STA memory + 109
+	LXI H, memory
+	SHLD currentProcessEntry
+	
 	pop D
 	pop H
 	ret
@@ -228,12 +277,12 @@ load_here:
 	DAD B		; entry + 105
 	MOV D, H
 	MOV E, L
-	MVI C, 4
+	MVI C, 5
 	DAD B
 	XCHG
 	MOV M, D
 	INX H
-	MOV M, E	; store entry + 109 into base reg address entry (entry + 105 & 106) 
+	MOV M, E	; store entry + 110 into base reg address entry (entry + 105 & 106) 
 	INX H
 	MOV D, H
 	MOV E, L
@@ -244,6 +293,9 @@ load_here:
 	MOV M, D	; stack pointer high (entry + 107)
 	INX H		
 	MOV M, E	; stack pointer low (entry + 108)
+	
+	INX H
+	MVI M, 0	; Program status 0: ready, 1: running, 2: blocked
 	
 	INX H
 	MOV D, H

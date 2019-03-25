@@ -33,6 +33,10 @@ uint64_t GTUOS::handleCall(CPU8080 & cpu){
 			cout << "READ_STR" << endl;
 			return readToRegisterBCString(cpu) * 10;
 		case LOAD_EXEC:
+			if (loadExecRaiseInterrupt) {
+				printf("RESET\n");
+				return 0;
+			}
 			cout << "LOAD_EXEC" << endl;
 			loadExec(cpu);
 			return 100;
@@ -50,7 +54,7 @@ uint64_t GTUOS::handleCall(CPU8080 & cpu){
 	return 10;
 }
 
-void GTUOS::loadExec(CPU8080 & cpu){
+void GTUOS::loadExec(CPU8080 & cpu) {
 	unsigned int index = getBCIndex(cpu);
 	string filename = "";
 	for(size_t i = index; cpu.memory->at(i) != 0; i++)
@@ -60,7 +64,8 @@ void GTUOS::loadExec(CPU8080 & cpu){
 
 	uint16_t startAddress = (cpu.state->h << 8) + cpu.state->l;
 	cpu.ReadFileIntoMemoryAt(filename.c_str(), startAddress);
-	//cpu.raiseInterrupt(0xef);
+	cpu.raiseInterrupt(0xef);
+	loadExecRaiseInterrupt = 1;
 }
 
 void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){
@@ -72,7 +77,7 @@ void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){
 
 void GTUOS::readToRegisterBCMemory(const CPU8080 & cpu){
 	string line = readStringFromFile();
-
+	
 	int value = stoi(line);
 	int index = getBCIndex(cpu);
 	cpu.memory->at(index) = value;

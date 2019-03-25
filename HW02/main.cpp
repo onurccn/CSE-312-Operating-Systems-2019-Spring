@@ -18,12 +18,13 @@ int main (int argc, char**argv)
 	GTUOS	theOS;
 
 	theCPU.ReadFileIntoMemoryAt(argv[1], 0x0000);	
- 
+	
 	do	
 	{
 		theCPU.Emulate8080p(DEBUG);
-		if(theCPU.isSystemCall())
+		if(theCPU.isSystemCall() && theCPU.interrupt != 1)
 			theOS.handleCall(theCPU);
+				
 	}	while (!theCPU.isHalted())
 ;
 	return 0;

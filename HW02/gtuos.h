@@ -20,6 +20,7 @@ enum SYSCALL{
 class GTUOS{
 	public:
 		uint64_t handleCall(CPU8080 & cpu);
+		int loadExecRaiseInterrupt = 0;
 	private:
 		std::string outputFileName = "output.txt";
 		std::string inputFileName = "input.txt";
