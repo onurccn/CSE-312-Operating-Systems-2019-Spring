@@ -34,7 +34,8 @@ uint64_t GTUOS::handleCall(CPU8080 & cpu){
 			return readToRegisterBCString(cpu) * 10;
 		case LOAD_EXEC:
 			if (loadExecRaiseInterrupt) {
-				printf("RESET\n");
+				printf("RESET LOAD_EXEC\n");
+				loadExecRaiseInterrupt = 0;
 				return 0;
 			}
 			cout << "LOAD_EXEC" << endl;
@@ -45,13 +46,65 @@ uint64_t GTUOS::handleCall(CPU8080 & cpu){
 			cpu.setQuantum(cpu.state->b);
 			return 7;
 		case PROCESS_EXIT:
-			// Need to access process table
+			if (exitProcessRaiseInterrupt) {
+				printf("RESET PROCESS_EXIT\n");
+				exitProcessRaiseInterrupt = 0;
+				return 0;
+			}
+			cout << "PROCESS_EXIT" << endl;
+			exitProcess(cpu);
 			return 80;
 		default:
 			return 0; // No registered System call counts as 0 cycles.
 	}
 
 	return 10;
+}
+
+void GTUOS::exitProcess(CPU8080 & cpu){
+	uint8_t currentProcess = cpu.memory->physicalAt(0x42);
+	ProcessTableEntry * currentProcessEntry, * cursor = processTable;
+	uint16_t baseAddress;
+	if (cursor->processId == currentProcess){
+		baseAddress = processTableBaseAddress;
+		currentProcessEntry = cursor;
+		cursor = NULL;
+	}
+	else {
+		while (cursor->nextEntry != NULL && cursor->nextEntry->processId != currentProcess) cursor = cursor->nextEntry;
+		if (cursor->nextEntry->processId != currentProcess) return;
+		baseAddress = cursor->nextEntryAddress;
+		currentProcessEntry = cursor->nextEntry;
+	}
+	
+	// Delete process data from memory
+	uint16_t nextProcessAddress = (cpu.memory->physicalAt(baseAddress) << 8) + cpu.memory->physicalAt(baseAddress + 1);
+	for (int i = baseAddress; i < currentProcessEntry->nextEntryAddress; i++) {
+		cpu.memory->physicalAt(i) = 0;
+	}
+
+	
+	
+	// Delete current node
+	if (cursor != NULL) {
+		cursor->nextEntry = currentProcessEntry->nextEntry;
+		cpu.memory->physicalAt(cursor->nextEntryAddress) = currentProcessEntry->nextEntryAddress >> 8;
+		cpu.memory->physicalAt(cursor->nextEntryAddress + 1) = currentProcessEntry->nextEntryAddress;
+	}
+	else {
+		processTable = currentProcessEntry->nextEntry;
+		processTableBaseAddress = nextProcessAddress;
+		cpu.memory->physicalAt(0x200) = nextProcessAddress >> 8;
+		cpu.memory->physicalAt(0x201) = nextProcessAddress;
+	}
+	uint16_t nextProcessLocation = cpu.memory->physicalAt(nextProcessAddress) == 0 ? 0x200 : nextProcessAddress;
+	cpu.memory->physicalAt(0x48) = nextProcessLocation >> 8;
+	cpu.memory->physicalAt(0x47) = nextProcessLocation;
+	printf("%x - %x- %x - %x - %x\n", cpu.memory->physicalAt(0x47), nextProcessLocation >> 8, nextProcessLocation, nextProcessLocation, baseAddress);
+	free(currentProcessEntry);
+	cpu.memory->physicalAt(0x46) -= 1;
+	cpu.raiseInterrupt(0xef);
+	exitProcessRaiseInterrupt = 0;
 }
 
 void GTUOS::loadExec(CPU8080 & cpu) {
@@ -66,6 +119,32 @@ void GTUOS::loadExec(CPU8080 & cpu) {
 	cpu.ReadFileIntoMemoryAt(filename.c_str(), startAddress);
 	cpu.raiseInterrupt(0xef);
 	loadExecRaiseInterrupt = 1;
+	uint16_t base = startAddress - 110;
+	ProcessTableEntry * cursor = processTable;
+	if (processTable != NULL) {
+		while (cursor->nextEntry != NULL) cursor = cursor->nextEntry;
+		base = cursor->nextEntryAddress;
+		cursor->nextEntry = (ProcessTableEntry *) malloc(sizeof(ProcessTableEntry));
+		cursor = cursor->nextEntry;
+	}
+	else {
+		processTable = cursor = (ProcessTableEntry *) malloc(sizeof(ProcessTableEntry));
+	}
+
+	cursor->nextEntryAddress = (cpu.memory->physicalAt(base) << 8) + cpu.memory->physicalAt(base + 1);
+	cursor->processId = cpu.memory->physicalAt(base + 2);
+	cursor->programCounter = (cpu.memory->physicalAt(base + 3) << 8) + cpu.memory->physicalAt(base + 4);
+	int i;
+	for (i = 0; cpu.memory->physicalAt(base + 5 + i) != '\0' && i < 100; i++){
+		cursor->processName[i] = cpu.memory->physicalAt(base + 5 + i);
+	}
+	cursor->processName[(i < 99) ? i : 99] = '\0';
+	cursor->baseReg = (cpu.memory->physicalAt(base + 105) << 8) + cpu.memory->physicalAt(base + 106);
+	cursor->stackPointer = (cpu.memory->physicalAt(base + 107) << 8) + cpu.memory->physicalAt(base + 108);
+	cursor->programState = cpu.memory->physicalAt(base + 109);
+	cursor->nextEntry = NULL;
+	
+	cpu.memory->physicalAt(0x46) += 1;
 }
 
 void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){
@@ -151,7 +230,7 @@ string GTUOS::readStringFromFile(){
 		// remove(inputFileName.c_str());
 		// rename("temp.txt", inputFileName.c_str());
 	}
-	
+	inFile.seekg(0, inFile.beg);
 	getline(inFile, line);
 
 	return line;

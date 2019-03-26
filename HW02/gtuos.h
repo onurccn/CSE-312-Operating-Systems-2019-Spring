@@ -19,12 +19,25 @@ enum SYSCALL{
 
 class GTUOS{
 	public:
+		struct ProcessTableEntry {
+			uint16_t nextEntryAddress;
+			uint8_t processId;
+			uint16_t programCounter;
+			char processName[100];
+			uint16_t baseReg;
+			uint16_t stackPointer;
+			uint8_t programState;
+			ProcessTableEntry * nextEntry;
+		};
 		uint64_t handleCall(CPU8080 & cpu);
 		int loadExecRaiseInterrupt = 0;
+		int exitProcessRaiseInterrupt = 0;
+		uint16_t processTableBaseAddress = 0x600;
 	private:
 		std::string outputFileName = "output.txt";
 		std::string inputFileName = "input.txt";
 		std::ifstream inFile;
+		ProcessTableEntry * processTable = NULL;
 		unsigned int printString(const CPU8080 & cpu);
 		void printRegisterBDecimal(const CPU8080 & cpu);
 		void printRegisterBMemory(const CPU8080 & cpu);
@@ -32,6 +45,7 @@ class GTUOS{
 		void readToRegisterBCMemory(const CPU8080 & cpu);
 		unsigned int readToRegisterBCString(const CPU8080 & cpu);
 		void loadExec(CPU8080 & cpu);
+		void exitProcess(CPU8080 & cpu);
 
 		int getBCIndex(const CPU8080 & cpu);
 		void printStringToFile(const std::string str);

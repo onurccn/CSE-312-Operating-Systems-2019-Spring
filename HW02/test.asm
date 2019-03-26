@@ -53,6 +53,8 @@ initName: dw 'init', 00H
 currentProcessID: db 00H	; init process id
 currentProcessEntry: ds 2
 lastProcessID: db 00H
+processCount: ds 1
+nextProcessEntry: ds 2
 
 ;; Need to make context switching here according to process table
 ;; First store everything to current stack
@@ -66,7 +68,19 @@ SCHEDULER:
 	push H		; These will be popped by PCHL 
 	push psw	; This (condition flags) isn't saved during interrupt so push it to current stack asap
 	push B
-	
+	LHLD nextProcessEntry
+	MOV A, H
+	CPI 0
+	JZ save_current_process
+	MVI D, 0
+	MVI E, 0
+	XCHG
+	SHLD nextProcessEntry
+	XCHG
+	jmp restoreProgram
+
+
+save_current_process:
 	LHLD currentProcessEntry
 	
 	MVI D, 0
@@ -98,9 +112,10 @@ SCHEDULER:
 
 	;;; Restore next process in process table
 	LHLD currentProcessEntry
-	MVI D, 4
-	MVI E, 0
-	DAD D
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
 
 	MOV A, M		; No need to check Low its always 0 since we use 200 and its multiplications
 	CPI 0
@@ -175,11 +190,15 @@ begin:
 	LXI SP,stack 	; always initialize the stack pointer
 	CALL initProcessTable
     LXI B, prog1
+	mvi A, 2
+load_2:
 	CALL loadProgramIntoMemory
-wait:
-	MVI A, 1
-	CPI 1
-	JZ wait
+	SBI 1
+	JNZ load_2
+stop:
+	LDA processCount
+	CPI 0
+	JNZ stop
     hlt
 
 ; Empty next process pointer
