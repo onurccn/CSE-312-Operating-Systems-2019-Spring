@@ -32,7 +32,11 @@ class GTUOS{
 		uint64_t handleCall(CPU8080 & cpu);
 		int loadExecRaiseInterrupt = 0;
 		int exitProcessRaiseInterrupt = 0;
-		uint16_t processTableBaseAddress = 0x600;
+		uint16_t memoryBase = 0x400;
+		uint16_t processTableBaseAddress = memoryBase + 0x400;
+		uint16_t currentProcessLocation = 0x33;
+		uint16_t processCount = 0x37;
+		uint16_t nextProcessLocationMem = 0x38;
 	private:
 		std::string outputFileName = "output.txt";
 		std::string inputFileName = "input.txt";
@@ -46,6 +50,7 @@ class GTUOS{
 		unsigned int readToRegisterBCString(const CPU8080 & cpu);
 		void loadExec(CPU8080 & cpu);
 		void exitProcess(CPU8080 & cpu);
+		void printTable(CPU8080 & cpu);
 
 		int getBCIndex(const CPU8080 & cpu);
 		void printStringToFile(const std::string str);

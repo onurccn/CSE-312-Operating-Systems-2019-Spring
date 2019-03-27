@@ -2,7 +2,7 @@
 #include "8080emuCPP.h"
 #include "gtuos.h"
 #include "memory.h"
-
+#include <time.h>
 	// This is just a sample main function, you should rewrite this file to handle problems 
 	// with new multitasking and virtual memory additions.
 int main (int argc, char**argv)
@@ -17,8 +17,9 @@ int main (int argc, char**argv)
 	CPU8080 theCPU(&mem);
 	GTUOS	theOS;
 
-	theCPU.ReadFileIntoMemoryAt(argv[1], 0x0000);	
-	
+	theCPU.ReadFileIntoMemoryAt(argv[1], 0x0000);
+	srand (time(NULL));
+	mem.physicalAt(0x3A) = rand() % 3;
 	do	
 	{
 		theCPU.Emulate8080p(DEBUG);

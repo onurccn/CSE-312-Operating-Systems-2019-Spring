@@ -60,9 +60,16 @@ uint64_t GTUOS::handleCall(CPU8080 & cpu){
 
 	return 10;
 }
+void GTUOS::printTable(CPU8080 & cpu){
+	ProcessTableEntry * cursor = processTable;
+	while(cursor != NULL) {
+		printf("Next: %x, ID: %x, Counter: %d , Name: %s, BaseReg: %x\n", cursor->nextEntryAddress, cursor->processId, cursor->programCounter, cursor->processName, cursor->baseReg);
+		cursor = cursor->nextEntry;
+	}
+}
 
 void GTUOS::exitProcess(CPU8080 & cpu){
-	uint8_t currentProcess = cpu.memory->physicalAt(0x42);
+	uint8_t currentProcess = cpu.memory->physicalAt(currentProcessLocation);
 	ProcessTableEntry * currentProcessEntry, * cursor = processTable;
 	uint16_t baseAddress;
 	if (cursor->processId == currentProcess){
@@ -83,26 +90,25 @@ void GTUOS::exitProcess(CPU8080 & cpu){
 		cpu.memory->physicalAt(i) = 0;
 	}
 
-	
-	
 	// Delete current node
 	if (cursor != NULL) {
 		cursor->nextEntry = currentProcessEntry->nextEntry;
-		cpu.memory->physicalAt(cursor->nextEntryAddress) = currentProcessEntry->nextEntryAddress >> 8;
-		cpu.memory->physicalAt(cursor->nextEntryAddress + 1) = currentProcessEntry->nextEntryAddress;
+		cpu.memory->physicalAt(cursor->baseReg - 110) = currentProcessEntry->nextEntryAddress >> 8;
+		cpu.memory->physicalAt(cursor->baseReg - 109) = currentProcessEntry->nextEntryAddress;
+		cursor->nextEntryAddress = currentProcessEntry->nextEntryAddress;
 	}
 	else {
 		processTable = currentProcessEntry->nextEntry;
 		processTableBaseAddress = nextProcessAddress;
-		cpu.memory->physicalAt(0x200) = nextProcessAddress >> 8;
-		cpu.memory->physicalAt(0x201) = nextProcessAddress;
+		cpu.memory->physicalAt(memoryBase) = nextProcessAddress >> 8;
+		cpu.memory->physicalAt(memoryBase + 1) = nextProcessAddress;
 	}
-	uint16_t nextProcessLocation = cpu.memory->physicalAt(nextProcessAddress) == 0 ? 0x200 : nextProcessAddress;
-	cpu.memory->physicalAt(0x48) = nextProcessLocation >> 8;
-	cpu.memory->physicalAt(0x47) = nextProcessLocation;
-	printf("%x - %x- %x - %x - %x\n", cpu.memory->physicalAt(0x47), nextProcessLocation >> 8, nextProcessLocation, nextProcessLocation, baseAddress);
+	uint16_t nextProcessLocation = cpu.memory->physicalAt(nextProcessAddress) == 0 ? memoryBase : nextProcessAddress;
+	cpu.memory->physicalAt(nextProcessLocationMem + 1) = nextProcessLocation >> 8;
+	cpu.memory->physicalAt(nextProcessLocationMem) = nextProcessLocation;
+	//printf("%x - %x - %x - %x - %x\n", cpu.memory->physicalAt(nextProcessLocationMem), nextProcessLocation >> 8, nextProcessLocation, nextProcessAddress, baseAddress);
 	free(currentProcessEntry);
-	cpu.memory->physicalAt(0x46) -= 1;
+	cpu.memory->physicalAt(processCount) -= 1;
 	cpu.raiseInterrupt(0xef);
 	exitProcessRaiseInterrupt = 0;
 }
@@ -144,7 +150,7 @@ void GTUOS::loadExec(CPU8080 & cpu) {
 	cursor->programState = cpu.memory->physicalAt(base + 109);
 	cursor->nextEntry = NULL;
 	
-	cpu.memory->physicalAt(0x46) += 1;
+	cpu.memory->physicalAt(processCount) += 1;
 }
 
 void GTUOS::readToRegisterBDecimal(const CPU8080 & cpu){

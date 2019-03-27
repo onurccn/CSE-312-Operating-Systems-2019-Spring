@@ -1,6 +1,6 @@
         ; 8080 assembler code
-        .hexfile test.hex
-        .binfile test.com
+        .hexfile MicroKernel2.hex
+        .binfile MicroKernel2.com
         ; try "hex" for downloading in hex format
         .download bin  
         .objcopy gobjcopy
@@ -20,7 +20,7 @@ PROCESS_EXIT    equ 9
 
 	; Position for stack pointer
 stack   equ 0F000h
-memory	equ 00200h
+memory	equ 00400h
 	org 000H
 	jmp begin
 
@@ -48,13 +48,20 @@ INTERRUPT5:
 	
 	ret
 
-prog1: dw 'Factorize.com', 00H
 initName: dw 'init', 00H
 currentProcessID: db 00H	; init process id
 currentProcessEntry: ds 2
 lastProcessID: db 00H
 processCount: ds 1
 nextProcessEntry: ds 2
+randomNumber: ds 1
+endLine: dw 00AH
+seperator: dw ' | ', 00H
+ProcessInfoLine: dw 'Next | ID | PC | BaseReg | Stack Pointer | State | Name', 00AH, 00H
+prog1: dw 'Primes.com', 00H
+prog2: dw 'Collatz.com', 00H
+prog3: dw 'Sum.com', 00H
+processTablePrinterIndex: ds 1
 
 ;; Need to make context switching here according to process table
 ;; First store everything to current stack
@@ -68,6 +75,9 @@ SCHEDULER:
 	push H		; These will be popped by PCHL 
 	push psw	; This (condition flags) isn't saved during interrupt so push it to current stack asap
 	push B
+	
+	CALL printProcessTable
+	
 	LHLD nextProcessEntry
 	MOV A, H
 	CPI 0
@@ -123,6 +133,9 @@ save_current_process:
 	JMP restoreProgram
 revertHead:
 	LXI H, memory
+	jmp restoreProgram
+	
+	org 110h
 restoreProgram:
 	SHLD currentProcessEntry	; Save next location
 	MVI D, 0
@@ -183,18 +196,143 @@ start:
 	PCHL	
 	
 	;;; END OF SCHEDULER
+printProcessTable:
+	PUSH H
+	PUSH D
+	PUSH PSW
+	
+	MVI A, PRINT_STR
+	LXI B, ProcessInfoLine
+	CALL GTU_OS
 
-	org 110h
+	LXI H, memory
+printEntry:
+	MOV A, H
+	STA processTablePrinterIndex	; Save high process table entry head
+
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
+	CALL PRINT_NUM
+	XCHG
+
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+	
+	INX H
+	MOV B, M
+	MVI A, PRINT_B
+	CALL GTU_OS			; Printd process ID
+	
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+
+	INX H
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
+	CALL PRINT_NUM		; Print PC
+	XCHG
+
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+
+	MVI B, 0
+	MVI C, 101
+	DAD B
+
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
+	CALL PRINT_NUM			; Print Base Reg
+	XCHG
+
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+
+	INX H
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
+	CALL PRINT_NUM			; Print Stack Pointer
+	XCHG
+
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+
+	INX H
+	MOV B, M
+	MVI A, PRINT_B
+	CALL GTU_OS			; Print State
+
+	LXI B, seperator
+	MVI A, PRINT_STR
+	CALL GTU_OS			;;	SEPERATOR
+
+	MVI B, 0FFh
+	MVI C, 098H
+	DAD B
+	MOV B, H
+	MOV C, L
+	MVI A, PRINT_STR
+	CALL GTU_OS			; Print name
+
+	LXI B, endLine
+	CALL GTU_OS			; Print End line
+
+	LDA processTablePrinterIndex
+	MOV H, A
+	MVI L, 0
+
+	MOV D, M
+	INX H
+	MOV E, M
+	XCHG
+	MOV A, M
+	CPI 0
+	JZ finishPrint
+	jmp printEntry
+finishPrint:
+	POP psw
+	pop h
+	pop d
+	ret 
+
 begin:
 	DI
 	LXI SP,stack 	; always initialize the stack pointer
 	CALL initProcessTable
+	LDA randomNumber
+	CPI 0
+	jz load_1
+	CPI 1
+	jz load_2
+	jmp load_3
+
+load_1:
     LXI B, prog1
-	mvi A, 2
+	jmp load_ten_times
 load_2:
+    LXI B, prog2
+	jmp load_ten_times
+load_3:
+	LXI B, prog3
+
+load_ten_times:
+	mvi A, 10
+load_loop:
 	CALL loadProgramIntoMemory
 	SBI 1
-	JNZ load_2
+	JNZ load_loop
 stop:
 	LDA processCount
 	CPI 0
@@ -364,3 +502,89 @@ copyNameIntoProcessTable:
 	pop B
 	pop psw
 	ret
+
+; Print HL register pair values
+PRINT_NUM:
+	PUSH PSW
+	PUSH H
+	PUSH D
+	
+	MOV B, H
+	MOV C, L
+	MVI A, 100
+	CALL DIV
+
+	MOV A, B
+	CPI 0
+	JZ not_print_hundred
+	CALL PRINT_DIGIT
+
+	MOV A, C
+	CPI 10
+	JM below_ten
+	JMP not_print_hundred
+below_ten:
+	MVI B, 0
+	CALL PRINT_DIGIT
+
+not_print_hundred:
+	MOV B, C
+	CALL PRINT_DIGIT
+
+	POP D
+	POP H
+	POP PSW
+	RET
+
+PRINT_DIGIT:
+	PUSH PSW
+
+	MVI A, PRINT_B
+	CALL GTU_OS
+
+	POP PSW
+	RET
+
+; BC/A
+DIV:
+    PUSH H
+    PUSH D
+    PUSH PSW
+
+    MOV D, A
+
+	MOV H, B
+	MOV L, C
+
+    MVI E, 0
+loop:
+	MOV A, C
+    INR E
+    SUB D
+    MOV C, A
+    MOV A, B
+    SBI 0
+    MOV B, A
+
+    JZ zero ; check lower byte
+    JM finish_div_loop
+    JMP loop
+
+finish_div_loop:
+    DCR E ; Decrease if negative
+    MOV A, C
+    ADD D
+    JMP finish_div  ; Jump lower byte check
+
+zero:
+    MOV A, C
+    CPI 0
+    JNZ loop
+    
+finish_div:
+    MOV B, E ; Result
+    MOV C, A ; Remainder
+    POP PSW
+    POP D
+    POP H
+    RET
