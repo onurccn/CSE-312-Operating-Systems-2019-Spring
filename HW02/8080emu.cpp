@@ -2121,7 +2121,6 @@ unsigned CPU8080::Emulate8080p(int debug) {
     {
         uint8_t Dtemp = state->d;
         uint8_t Etemp = state->e;
-        
         state->pc = (state->h << 8) | state->l;
         Pop(memory, state, &state->h, &state->l);
         Pop(memory, state, &state->d, &state->e);
