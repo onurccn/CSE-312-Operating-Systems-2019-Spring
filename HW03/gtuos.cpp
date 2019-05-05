@@ -79,15 +79,51 @@ void GTUOS::printTable(CPU8080 & cpu){
 	}
 }
 
+void GTUOS::saveMailbox(CPU8080 & cpu) {
+	FILE * fp = fopen("mailbox.txt", "w+");
+	string str = "";
+	char tmp[4];
+	sprintf(tmp,"%x\t", cpu.memory->physicalAt(mailboxBaseAddress));
+	str += tmp;
+	sprintf(tmp,"%x\t", cpu.memory->physicalAt(mailboxBaseAddress + 1));
+	str += tmp;
+	sprintf(tmp,"%x\n", cpu.memory->physicalAt(mailboxBaseAddress + 2));
+	str += tmp;
+
+	for(size_t i = 0; i < mailboxSize; i++)
+	{
+		char tmp[4];
+		sprintf(tmp,"%x\t", cpu.memory->physicalAt(mailboxBaseAddress + 3 + i));
+		str += tmp;
+	}
+	str += "\n";
+	
+	fwrite(str.c_str(), sizeof(char), str.length(), fp);
+	fclose(fp);
+
+	fp = fopen("locallist.txt", "w+");
+	int secondProcessLocalListBaseAddress = 3182 + 0xD;
+	str = "";
+	for(size_t i = 0; i < 400; i++)
+	{
+		sprintf(tmp,"%x\n", cpu.memory->physicalAt(secondProcessLocalListBaseAddress + i));
+		str += tmp;
+	}
+	
+	fwrite(str.c_str(), sizeof(char), str.length(), fp);
+	fclose(fp);
+}
+
 void GTUOS::randInt(CPU8080 & cpu) {
-	srand(time(NULL));
 	cpu.state->b = rand() % 0xFF;
+	printf("RAND_INT: %x\n", cpu.state->b);
 }
 
 void GTUOS::wait(CPU8080 & cpu) {
 	uint8_t mailboxID = cpu.state->b;
 	uint8_t condVarAddr = cpu.state->c;	// 1 or 2 to identify which semaphore to point
 	uint16_t mailboxAddress = mailboxBaseAddress + ((mailboxID - 1) * mailboxSize);
+	//printf("WAIT CALLED on %d - %d\n", condVarAddr, cpu.memory->physicalAt(mailboxAddress + condVarAddr));
 	if (cpu.memory->physicalAt(mailboxAddress + condVarAddr) > 0) {
 		cpu.memory->physicalAt(mailboxAddress + condVarAddr)--;
 	}
@@ -101,6 +137,7 @@ void GTUOS::signal(CPU8080 & cpu) {
 	uint8_t mailboxID = cpu.state->b;
 	uint8_t condVarAddr = cpu.state->c;	// 1 or 2 to identify which semaphore to point
 	uint16_t mailboxAddress = mailboxBaseAddress + ((mailboxID - 1) * mailboxSize);
+	//printf("SIGNAL CALLED on %d\n", condVarAddr);
 	cpu.memory->physicalAt(mailboxAddress + condVarAddr)++;
 }
 

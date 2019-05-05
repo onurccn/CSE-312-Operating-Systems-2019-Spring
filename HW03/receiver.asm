@@ -40,27 +40,61 @@ GTU_OS:	PUSH D
 	;This program adds numbers from 0 to 10. The result is stored at variable
 	; sum. The results is also printed on the screen.
 
-sum	ds 2 ; will keep the sum
+array	ds 400 ; will keep the array
+index 	ds 2
 
 begin:
-	mvi a, SIGNAL
-    mvi b, 1
-    mvi c, 1
-    CALL GTU_OS
-    
-    mvi c, 10	; init C with 10
-	mvi a, 0	; A = 0
+
+	mvi a, 0
+	sta index
+	sta index + 1
     
 loop:
-	ADD c		; A = A + C
-	DCR c		; --C
-	JNZ loop	; goto loop if C!=0
-	STA SUM		; SUM = A
-	LDA SUM		; A = SUM
-			; Now we will call the OS to print the value of sum
-	MOV B, A	; B = A
-	MVI A, PRINT_B	; store the OS call code to A
-	call GTU_OS	; call the OS
+	MVI A, WAIT
+	MVI B, 1
+	MVI C, 1		
+	CALL GTU_OS		; Check if mailbox has an entry
+
+	MVI C, 0		
+	CALL GTU_OS		; Hold mutex lock in order to put random number in mailbox 1. enter critical region
+
+	mvi H, 13h
+	mvi L, 93h
+	mov E, M	; empty slot index
+	mvi L, 95h	
+
+	mvi D, 0
+	dad D		; Last full slot address
+
+	mov D, m
+
+	mvi A, SIGNAL
+	mvi B, 1
+	mvi C, 0
+	CALL GTU_OS		; Lift mutex lock	leave critical region
+	mvi C, 2
+	CALL GTU_OS		; Signal empty semaphore
+
+	; calculate local list index
+	lda index
+	mov b, a
+	lda index + 1
+	mov c, a
+	lxi h, array
+	dad b
+
+	mov m, d
+
+	mvi h, 0
+	mvi l, 1
+	dad b
+
+	mov a, h
+	sta index
+	mov a, l
+	sta index + 1
+
+	jmp loop
 	
 	MVI A, PROCESS_EXIT
 	CALL GTU_OS		; end program

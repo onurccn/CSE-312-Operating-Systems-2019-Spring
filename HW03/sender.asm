@@ -40,27 +40,63 @@ GTU_OS:	PUSH D
 	;This program adds numbers from 0 to 10. The result is stored at variable
 	; sum. The results is also printed on the screen.
 
-sum	ds 2 ; will keep the sum
-
 begin:
-	mvi a, WAIT
-    mvi b, 1
-    mvi c, 1
-    CALL GTU_OS
-    
-    mvi c, 10	; init C with 10
-	mvi a, 0	; A = 0
-    
+	mvi H, 17h
+	mvi L, 92h
+	mvi M, 1	; Initialize mutex for mailbox 1.
+	mvi L, 93h
+	mvi M, 0	; Initialize full semaphore for mailbox 1.
+	mvi L, 94h
+	mvi M, 50	; Initialize empty semaphore for mailbox 1.
+
+    mvi H, 1
+	mvi L, 90h
+	mvi D, 0FFh
+	mvi E, 0FFh
 loop:
-	ADD c		; A = A + C
-	DCR c		; --C
-	JNZ loop	; goto loop if C!=0
-	STA SUM		; SUM = A
-	LDA SUM		; A = SUM
-			; Now we will call the OS to print the value of sum
-	MOV B, A	; B = A
-	MVI A, PRINT_B	; store the OS call code to A
-	call GTU_OS	; call the OS
-	
+	MVI A, RAND_INT
+	CALL GTU_OS		; Reg B has random number
+	push D
+	push H
+	push B
+
+
+	MVI A, WAIT
+	MVI B, 1
+	MVI C, 0		
+	CALL GTU_OS		; Hold mutex lock in order to put random number in mailbox 1. enter critical region
+
+	MVI C, 2		
+	CALL GTU_OS		; Check if mailbox has empty slot
+
+	mvi H, 17h
+	mvi L, 93h
+	mov E, M	; empty slot index
+	mvi L, 95h	
+
+	mvi D, 0
+	dad D		; empty slot address
+	pop B
+	mov m, b
+
+	mvi A, SIGNAL
+	mvi B, 1
+	mvi C, 1
+	CALL GTU_OS		; Signal full semaphore
+	mvi C, 0
+	CALL GTU_OS		; Lift mutex lock	leave critical region
+
+
+	pop H
+	pop D
+	DAD D
+	MOV A, L
+	SBI	0
+	JNZ loop
+	MOV A, H
+	SBI 0
+	JNZ loop
+
+
 	MVI A, PROCESS_EXIT
 	CALL GTU_OS		; end program

@@ -33,6 +33,7 @@ class GTUOS{
 			ProcessTableEntry * nextEntry;
 		};
 		uint64_t handleCall(CPU8080 & cpu);
+		void saveMailbox(CPU8080 & cpu);
 		int loadExecRaiseInterrupt = 0;
 		int exitProcessRaiseInterrupt = 0;
 		uint16_t memoryBase = 0x400;

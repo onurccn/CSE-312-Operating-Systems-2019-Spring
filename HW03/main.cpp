@@ -25,6 +25,10 @@ int main (int argc, char**argv)
 		theCPU.Emulate8080p(DEBUG);
 		if(theCPU.isSystemCall() && theCPU.interrupt != 1)
 			theOS.handleCall(theCPU);
+		
+		if(theCPU.interrupt == 1)
+			theOS.saveMailbox(theCPU);
+		
 				
 	}	while (!theCPU.isHalted())
 ;
