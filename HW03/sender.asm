@@ -50,7 +50,7 @@ begin:
 	mvi M, 50	; Initialize empty semaphore for mailbox 1.
 
     mvi H, 1
-	mvi L, 90h
+	mvi L, 91h
 	mvi D, 0FFh
 	mvi E, 0FFh
 loop:

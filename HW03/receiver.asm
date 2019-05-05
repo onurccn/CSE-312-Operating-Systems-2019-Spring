@@ -48,7 +48,7 @@ begin:
 	mvi a, 0
 	sta index
 	sta index + 1
-    
+
 loop:
 	MVI A, WAIT
 	MVI B, 1
